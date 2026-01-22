@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disney General Hospital - House M.D. Edition</title>
+    <style>
+        /* 基礎佈局 */
+        body { margin: 0; font-family: sans-serif; background: #1a1a1a; overflow: hidden; }
+        #game-container { width: 100vw; height: 100vh; position: relative; }
+
+        /* --- 關鍵修正：全覆蓋遮罩 --- */
+        #modal-overlay {
+            display: none; 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100vw; height: 100vh; /* 確保全螢幕遮蔽 */
+            background: rgba(0, 0, 0, 0.6); 
+            backdrop-filter: blur(15px); /* 毛玻璃效果 */
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 9999; /* 最高的層級 */
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 病歷卡片 */
+        #patient-modal {
+            background: #fff;
+            width: 90%;
+            max-width: 450px;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            margin-bottom: 140px; /* 避開底部 UI 的預留空間 */
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute; top: 15px; right: 15px;
+            border: none; background: #eee; border-radius: 50%;
+            width: 30px; height: 30px; cursor: pointer;
+        }
+
+        /* 底部 UI 欄位 */
+        #bottom-ui {
+            position: fixed; bottom: 0; width: 100%; height: 140px;
+            background: #222; color: white; display: flex; align-items: center;
+            justify-content: space-around; z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="patient-list"></div>
+
+    <div id="bottom-ui">
+        <div>總病患數: <span id="count">68</span></div>
+        <button onclick="alert('豪斯正在看影集，別吵他')">呼叫診斷小組</button>
+    </div>
+</div>
+
+<div id="modal-overlay" onclick="closeModal()">
+    <div id="patient-modal" onclick="event.stopPropagation()">
+        <button class="close-btn" onclick="closeModal()">✕</button>
+        <h2 id="m-name">病人姓名</h2>
+        <hr>
+        <p><strong>來源：</strong><span id="m-from"></span></p>
+        <p><strong>症狀：</strong><span id="m-symptom"></span></p>
+        <div style="background: #f0f0f0; padding: 15px; border-radius: 10px;">
+            <p><strong>診斷 (豪斯)：</strong><span id="m-diag"></span></p>
+            <p style="color: #d11;"><strong>備註：</strong><span id="m-note"></span></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 這裡放入你那 68 位病人的數據 (已修復語法)
+    { name: "愛麗絲", dept: "神經內科", age: 12, sex: "F", from: "UK", urgent: "中等", symptom: "感知體型異常縮放。", top: "#84C1FF", bottom: "#ffffff", cases: [{d:"夢遊仙境症候群(AIWS)", h:"視覺中樞放電異常。"}] },
+    { name: "白雪", dept: "毒物科", age: 17, sex: "F", from: "Germany", urgent: "緊急", symptom: "深度假死昏迷。", top: "#FFFF37", bottom: "#0000E3", cases: [{d:"有機磷中毒", h:"誤食劇毒蘋果，不要信那些有機農作物!"}] },
+    { name: "貝兒", dept: "心理科", age: 22, sex: "F", from: "France", urgent: "普通", symptom: "強烈的依戀感。", top: "#FFFFAA", bottom: "#FFE153", cases: [{d:"斯德哥爾摩", h:"心理創傷導致依賴。"}] },
+    { name: "艾莎", dept: "免疫科", age: 21, sex: "F", from: "Arendelle", urgent: "緊急", symptom: "體溫極度低落。", top: "#D2E9FF", bottom: "#ECF5FF", cases: [{d:"低體溫症", h:"代謝異常。"}] },
+    { name: "安娜", dept: "心臟外科", age: 18, sex: "F", from: "Arendelle", urgent: "緊急", symptom: "心臟瓣膜受阻。", top: "#6C3365", bottom: "#000093", cases: [{d:"冷凝蛋白症", h:"循環衰竭，趕快安排手術除非你們要看著病人死掉。"}] },
+    { name: "仙杜瑞拉", dept: "外科", age: 19, sex: "F", from: "Germany", urgent: "普通", symptom: "腳趾嚴重變形。", top: "#0066CC", bottom: "#ACD6FF", cases: [{d:"拇指外翻", h:"長期擠壓。"}] },
+    { name: "茉莉", dept: "呼吸道科", age: 18, sex: "F", from: "Agraba", urgent: "中等", symptom: "吸入神燈煙霧。", top: "#977C00", bottom: "#00AEAE", cases: [{d:"塵肺症", h:"肺部粉塵堆積，另外查查那隻老虎是不是有弓蟲。"}] },
+    { name: "樂佩", dept: "皮膚科", age: 18, sex: "F", from: "Corona", urgent: "普通", symptom: "頸椎劇烈疼痛。", top: "#EBD3E8", bottom: "#9F4D95", cases: [{d:"頸椎壓迫", h:"頭髮過重還有缺乏維他命D，哪門子恐怖後母。"}] },
+    { name: "莫阿娜", dept: "皮膚科", age: 16, sex: "F", from: "Motunui", urgent: "普通", symptom: "大面積曬傷脫水。", top: "#FF2D2D", bottom: "#FFF4C1", cases: [{d:"日光性皮炎", h:"只是曬傷!無聊!"}] },
+    { name: "拉雅", dept: "外科", age: 25, sex: "F", from: "Kumandra", urgent: "緊急", symptom: "肌肉痙攣，身上有刀傷。", top: "#1E293B", bottom: "#713F12", cases: [{d:"破傷風", h:"被古劍砍傷。"}] }, 
+    { name: "梅利達", dept: "神經內科", age: 17, sex: "F", from: "Scotland", urgent: "緊急", symptom: "幻視身邊的人變成熊。", top: "#600000", bottom: "#003E3E", cases: [{d:"普利昂感染", h:"吃了受污染的腦組織。"}] },
+    { name: "花木蘭", dept: "毒物科", age: 19, sex: "F", from: "China", urgent: "普通", symptom: "幻視與嚴重認知偏差。", top: "#0000E3", bottom: "#CE0000", cases: [{d:"鉛中毒", h:"劣質盔甲導致鉛超標，毀了神經系統。看來當今聖上給的預算不如科蒂的多呢。"}] },
+    { name: "寶嘉康蒂", dept: "毒物科", age: 19, sex: "F", from: "Powhatan", urgent: "普通", symptom: "聲稱看見風的聲音。", top: "#60a5fa", bottom: "#b91c1c", cases: [{d:"顳葉受損", h:"聽見風的呼喚？那是大腦有問題。做做MRI看看是否有不正常放電。"}] },
+    { name: "愛麗兒", dept: "耳鼻喉科", age: 16, sex: "F", from: "Atlantica", urgent: "緊急", symptom: "完全喪失聲音。", top: "#2dd4bf", bottom: "#134e4a", cases: [{d:"聲帶麻痺", h:"長期泡水導致神經受損。"}] },
+    { name: "睡美人", dept: "睡眠醫學", age: 16, sex: "F", from: "France", urgent: "中等", symptom: "長期無法覺醒。", top: "#f9a8d4", bottom: "#be185d", cases: [{d:"克萊恩症", h:"神經中樞抑制。"}] },
+    { name: "艾霞",  dept: "神經內科", age: 17, sex: "F", from: "Rosas", urgent: "普通", symptom: "看見願望氣泡懸浮，聽見山羊說話。", top: "#a855f7", bottom: "#581c87", cases: [{d:"顳葉癲癇", h:"可能是視覺先兆或聯覺症，掃個CT。"}] },
+    { name: "蒂安納", dept: "感染科", age: 22, sex: "F", from: "New Orleans", urgent: "緊急", symptom: "急性胃腸炎，曾與兩棲類動物接吻。", top: "#BEF264", bottom: "#166534", cases: [{d:"沙門氏菌", h:"親吻青蛙的代價。"}] },
+    
+    // --- 王子與男主陣營 ---
+    { name: "漢斯", dept: "精神科", age: 23, sex: "M", from: "Southern Isles", urgent: "中等", symptom: "極度自戀人格。", top: "#FCFCFC", bottom: "#0066CC", cases: [{d:"權力妄想", h:"人格障礙病史。"}] },
+    { name: "野獸", dept: "遺傳學", age: 30, sex: "M", from: "France", urgent: "普通", symptom: "骨骼異變毛髮多。", top: "#FFFF37", bottom: "#004B97", cases: [{d:"多毛症", h:"染色體異常，算是基因的詛咒吧。"}] },
+    { name: "阿拉丁", dept: "消化內科", age: 19, sex: "M", from: "Agraba", urgent: "普通", symptom: "長期飢餓腹痛。", top: "#921AFF", bottom: "#FFFFFF", cases: [{d:"寄生蟲病", h:"不潔飲食。"}] },
+    { name: "李翔", dept: "創傷科", age: 22, sex: "M", from: "China", urgent: "中等", symptom: "腹部爆炸灼傷。", top: "#000000", bottom: "#8E8E8E", cases: [{d:"三度灼傷", h:"只是普通戰場外傷，無聊。"}] },
+    { name: "辛巴", dept: "心理科", age: 18, sex: "M", from: "Savanna", urgent: "普通", symptom: "強烈逃避心理。", top: "#FFDC35", bottom: "#642100", cases: [{d:"創傷後壓力", h:"倖存者愧疚。"}] },
+    { name: "泰山", dept: "復健科", age: 25, sex: "M", from: "Jungle", urgent: "普通", symptom: "關節磨損變形。", top: "#844200", bottom: "#FFA042", cases: [{d:"骨關節炎", h:"攀爬損傷。"}] },
+    { name: "阿克", dept: "骨科", age: 25, sex: "M", from: "Arendelle", urgent: "普通", symptom: "腹部劇烈疼痛。", top: "#4F4F4F", bottom: "#336666", cases: [{d:"腹股溝疝氣", h:"搬運負傷。"}] },
+    { name: "海克力斯", dept: "基因科", age: 25, sex: "M", from: "Greece", urgent: "中等", symptom: "心肌異常肥大。", top: "#FF8000", bottom: "#0066CC", cases: [{d:"肥厚心肌", h:"基因突變。"}] },
+    { name: "羅賓漢", dept: "感染科", age: 30, sex: "M", from: "UK", urgent: "普通", symptom: "手部多處紅腫。", top: "#00A600", bottom: "#00BB00", cases: [{d:"萊姆病", h:"蜱蟲叮咬。"}] },
+    { name: "亞力克", dept: "急診科", age: 20, sex: "M", from: "Caribbean Sea Isles", urgent: "緊急", symptom: "溺水後肺水腫。", top: "#ffffff", bottom: "#0072E3", cases: [{d:"吸入性肺炎", h:"肺部積水。"}] },
+
+    // --- 反派陣營 ---
+    { name: "賈方", dept: "毒物科", age: 50, sex: "M", from: "Agraba", urgent: "緊急", symptom: "瞳孔放大幻覺。", top: "#ef4444", bottom: "#000000", cases: [{d:"顛茄中毒", h:"誤食催眠劑。"}] },
+    { name: "烏蘇拉", dept: "腎臟科", age: 60, sex: "F", from: "Atlantica", urgent: "中等", symptom: "下半身嚴重水腫。", top: "#c084fc", bottom: "#1e1b4b", cases: [{d:"腎衰竭", h:"電解質失調合併寄生胎，做個切片看看，肯定是寄生蟲。"}] },
+    { name: "黑皇后", dept: "整形外科", age: 45, sex: "F", from: "Germany", urgent: "普通", symptom: "皮膚金屬沉澱。", top: "#4c1d95", bottom: "#930000", cases: [{d:"汞中毒", h:"化妝品過量。"}] },
+    { name: "梅菲瑟", dept: "血液科", age: 40, sex: "F", from: "Moor", urgent: "中等", symptom: "血液呈現綠色。", top: "#000000", bottom: "#6F00D2", cases: [{d:"高鐵血蛋白", h:"毒素入侵。"}] },
+    { name: "虎克船長", dept: "感染科", age: 45, sex: "M", from: "Neverland", urgent: "緊急", symptom: "左手殘肢化膿。", top: "#FF2D2D", bottom: "#AE8F00", cases: [{d:"筋膜炎", h:"細菌感染，船上沒什麼地方可以存放鐵鉤吧。"}] },
+    { name: "刀疤", dept: "眼科", age: 42, sex: "M", from: "Savanna", urgent: "普通", symptom: "眼角傷口潰爛。", top: "#BB3D00", bottom: "#000000", cases: [{d:"角膜炎", h:"慢性感染。"}] },
+    { name: "加斯頓", dept: "骨科", age: 28, sex: "M", from: "France", urgent: "中等", symptom: "肌肉撕裂傷。", top: "#ef4444", bottom: "#7f1d1d", cases: [{d:"類固醇過量", h:"荷爾蒙失調。"}] },
+    { name: "庫伊拉", dept: "神經科", age: 50, sex: "F", from: "UK", urgent: "普通", symptom: "極度焦慮躁狂。", top: "#ffffff", bottom: "#000000", cases: [{d:"化學溶劑中毒", h:"長期染料接觸，給點食鹽水沖乾淨就送走。"}] },
+    { name: "哈迪斯", dept: "皮膚科", age: 5000, sex: "M", from: "Hell", urgent: "普通", symptom: "皮膚呈現青藍色。", top: "#60a5fa", bottom: "#000000", cases: [{d:"銀質沉著症", h:"重金屬沉澱....那名單上是有我嗎?"}] },
+    { name: "葛索", dept: "皮膚科", age: 400, sex: "F", from: "Corona", urgent: "緊急", symptom: "皮膚老化，嚴重脫水。", top: "#7f1d1d", bottom: "#000000", cases: [{d:"端粒酶耗盡", h:"細胞壽命到期。"}] },
+    { name: "法西利爾", dept: "毒物科", age: 38, sex: "M", from: "New Orleans", urgent: "緊急", symptom: "影子自主運動。", top: "#581c87", bottom: "#1e1b4b", cases: [{d:"曼陀羅中毒", h:"視覺幻覺。"}] },
+    { name: "大野狼", dept: "胸腔外科", age: 35, sex: "M", from: "Wood", urgent: "緊急", symptom: "肺部被石頭塞滿。", top: "#6C6C6C", bottom: "#6C6C6C", cases: [{d:"異物阻塞", h:"呼吸衰竭。"}] },
+
+    // --- 配角與怪物陣營 ---
+    { name: "加西莫多", dept: "骨科", age: 25, sex: "M", from: "Paris", urgent: "緊急", symptom: "脊椎嚴重畸形。", top: "#007500", bottom: "#464210", cases: [{d:"波特氏病", h:"脊椎結核導致。"}] },
+    { name: "盧米亞", dept: "燒燙傷科", age: 35, sex: "M", from: "France", urgent: "緊急", symptom: "雙手末端自燃。", top: "#fde047", bottom: "#ca8a04", cases: [{d:"自燃症", h:"體溫調節毀損。"}] },
+    { name: "葛斯華", dept: "心臟外科", age: 50, sex: "M", from: "France", urgent: "中等", symptom: "體內機械滴答聲。", top: "#FFF3EE", bottom: "#A23400", cases: [{d:"發條心臟", h:"機械結構取代。"}] },
+    { name: "茶煲太太", dept: "代謝內科", age: 55, sex: "F", from: "France", urgent: "普通", symptom: "排出高溫液體。", top: "#E2C2DE", bottom: "#FBFBFF", cases: [{d:"成骨不全", h:"陶瓷化病變。"}] },
+    { name: "阿齊", dept: "神經外科", age: 6, sex: "M", from: "France", urgent: "緊急", symptom: "頭部開放性裂痕。", top: "#FBFBFF", bottom: "#FFE153", cases: [{d:"顱骨骨折", h:"腦組織暴露。"}] },
+    { name: "衣櫥夫人", dept: "胸腔外科", age: 40, sex: "F", from: "France", urgent: "普通", symptom: "腹部異常擴大。", top: "#FFEEDD", bottom: "#DEFFAC", cases: [{d:"巨結腸症", h:"肺部擠壓。"}] },
+    { name: "普魯梅", dept: "皮膚科", age: 25, sex: "F", from: "France", urgent: "普通", symptom: "四肢退化羽毛狀。", top: "#FFF4C1", bottom: "#9F5000", cases: [{d:"羽毛化病", h:"角質化病變。"}] },
+    { name: "叮噹", dept: "內分泌科", age: 100, sex: "F", from: "Neverland", urgent: "普通", symptom: "憤怒時發出強光。", top: "#FFFF37", bottom: "#A8FF24", cases: [{d:"甲狀腺風暴", h:"代謝率過高。"}] },
+    { name: "雪寶", dept: "急診科", age: 3, sex: "M", from: "Arendelle", urgent: "普通", symptom: "意識模糊融化。", top: "#FF8040", bottom: "#FCFCFC", cases: [{d:"熱射病", h:"溫控無效。"}] },
+    { name: "皮諾丘", dept: "復健科", age: 10, sex: "M", from: "Italy", urgent: "中等", symptom: "肢體皮膚木質化。", top: "#fbbf24", bottom: "#78350f", cases: [{d:"木質化病", h:"罕見上皮病。"}] },
+    { name: "毛克利", dept: "感染科", age: 10, sex: "M", from: "India", urgent: "中等", symptom: "全身不明爪痕。", top: "#FF8040", bottom: "#451a03", cases: [{d:"狂犬病", h:"野生感染。"}] },
+    { name: "毛伊", dept: "內分泌", age: 2000, sex: "M", from: "Motunui", urgent: "普通", symptom: "肌肉急劇萎縮。", top: "#5B4B00", bottom: "#467500", cases: [{d:"荷爾蒙衰竭", h:"機能退化。"}] },
+    { name: "小飛象", dept: "耳鼻喉", age: 5, sex: "M", from: "Barnum & Bailey Circus", urgent: "普通", symptom: "耳朵腫大充血。", top: "#ACD6FF", bottom: "#FFECF5", cases: [{d:"外耳炎", h:"軟組織增生。"}] },
+    { name: "稻草人", dept: "神經外科", age: 20, sex: "M", from: "Oz", urgent: "中等", symptom: "腦內空無一物。", top: "#808040", bottom: "#006000", cases: [{d:"腦萎縮", h:"前額葉缺失。"}] },
+    { name: "錫鐵人", dept: "心臟外科", age: 25, sex: "M", from: "Oz", urgent: "緊急", symptom: "胸腔完全生鏽。", top: "#BEBEBE", bottom: "#BEBEBE", cases: [{d:"金屬中毒", h:"瓣膜氧化。"}] },
+    { name: "膽小獅", dept: "心血管科", age: 12, sex: "M", from: "Oz", urgent: "普通", symptom: "心悸極度恐懼。", top: "#796400", bottom: "#FFD306", cases: [{d:"心律不整", h:"腎上腺素失調。"}] },
+    { name: "木法沙", dept: "創傷外科", age: 45, sex: "M", from: "Savanna", urgent: "緊急", symptom: "胸腔大量出血。", top: "#844200", bottom: "#FFA042", cases: [{d:"內出血", h:"鈍力創傷。"}] },
+    { name: "賽巴斯汀", dept: "血液科", age: 40, sex: "M", from: "Atlantica", urgent: "普通", symptom: "外殼變紅發熱。", top: "#FFB5B5", bottom: "#FF2D2D", cases: [{d:"甲殼蛋白病", h:"重金屬超標。"}] },
+    { name: "小比目魚", dept: "眼科", age: 10, sex: "M", from: "Atlantica", urgent: "普通", symptom: "雙眼過度突出。", top: "#0080FF", bottom: "#FFFF37", cases: [{d:"甲狀腺眼病", h:"眼壓升高。"}] },
+    { name: "白兔", dept: "心臟科", age: 5, sex: "M", from: "Wonderland", urgent: "普通", symptom: "心跳過快焦慮。", top: "#ffffff", bottom: "#CE0000", cases: [{d:"竇性心動過速", h:"壓力性心悸。"}] },
+    { name: "瘋帽客", dept: "毒物科", age: 40, sex: "M", from: "Wonderland", urgent: "中等", symptom: "神智不清震顫。", top: "#FFD306", bottom: "#64A600", cases: [{d:"水銀中毒", h:"職業性暴露。"}] },
+    { name: "三月兔", dept: "精神科", age: 5, sex: "M", from: "Wonderland", urgent: "普通", symptom: "幻聽與躁動。", top: "#78350f", bottom: "#b45309", cases: [{d:"精神分裂症", h:"神經傳導失調。"}] },
+    { name: "紅心王后", dept: "心血管", age: 50, sex: "F", from: "Wonderland", urgent: "緊急", symptom: "面部潮紅易怒。", top: "#ef4444", bottom: "#000000", cases: [{d:"惡性高血壓", h:"血管彈性失衡。"}] },
+    { name: "妙妙貓", dept: "神經內科", age: "?", sex: "M", from: "Wonderland", urgent: "普通", symptom: "身體部分隱形。", top: "#c084fc", bottom: "#581c87", cases: [{d:"光學性偏頭痛", h:"大腦皮質異常。"}] },
+    { name: "阿薛", dept: "心理科", age: 11, sex: "M", from: "Tri-County", urgent: "中等", symptom: "反社會人格。", top: "#1f2937", bottom: "#000000", cases: [{d:"創傷後壓力", h:"嘿!我是不是看過你，討厭的西洋棋小鬼。"}] },
+    { name: "萬事通", dept: "神經內科", age: 65, sex: "M", from: "Germany", urgent: "普通", symptom: "語言障礙，字詞混淆。", top: "#991b1b", bottom: "#1e293b", cases: [{d:"失語症", h:"布若卡氏區受損。"}] },
+    { name: "愛生氣", dept: "心血管科", age: 60, sex: "M", from: "Germany", urgent: "普通", symptom: "極度易怒，面部潮紅。", top: "#b91c1c", bottom: "#111827", cases: [{d:"暴怒障礙", h:"高血壓腦病。"}] },
+    { name: "開心果", dept: "遺傳科", age: 58, sex: "M", from: "Germany", urgent: "普通", symptom: "不合時宜的笑聲。", top: "#808040", bottom: "#FFE66F", cases: [{d:"天使症候群", h:"基因缺陷。"}] },
+    { name: "瞌睡蟲", dept: "睡眠中心", age: 62, sex: "M", from: "Germany", urgent: "中等", symptom: "隨時陷入深度睡眠。", top: "#616130", bottom: "#C2C287", cases: [{d:"呼吸暫停", h:"睡病發作。"}] },
+    { name: "害羞鬼", dept: "精神科", age: 55, sex: "M", from: "Germany", urgent: "普通", symptom: "臉紅、社交退縮。", top: "#FFED97", bottom: "#FFD1A4", cases: [{d:"赤面恐懼症", h:"自主神經敏感。"}] },
+    { name: "噴嚏精", dept: "耳鼻喉科", age: 60, sex: "M", from: "Germany", urgent: "普通", symptom: "嚴重過敏，物理衝擊性噴嚏。", top: "#743A3A", bottom: "#E8E8D0", cases: [{d:"鼻腔腫瘤", h:"過敏性鼻炎。"}] },
+    { name: "糊塗蛋", dept: "小兒神經科", age: 12, sex: "M", from: "Germany", urgent: "中等", symptom: "喪失語言，大耳畸形。", top: "#DAB1D5", bottom: "#CDCD9A", cases: [{d:"脆性X症", h:"發育遲緩。"}] },
+];
+
+    function showPatient(name) {
+        const p = patientsData.find(x => x.name === name);
+        if(!p) return;
+        
+        document.getElementById('m-name').innerText = p.name + " (" + p.age + "歲)";
+        document.getElementById('m-from').innerText = p.from;
+        document.getElementById('m-symptom').innerText = p.symptom;
+        document.getElementById('m-diag').innerText = p.cases[0].d;
+        document.getElementById('m-note').innerText = p.cases[0].h;
+        
+        document.getElementById('modal-overlay').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('modal-overlay').style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
